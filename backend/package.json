@@ -27,5 +27,8 @@
   "devDependencies": {
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true
   }
 }
