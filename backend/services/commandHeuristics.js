@@ -192,19 +192,39 @@ function extractFindTarget(task) {
   return filename || null;
 }
 
+// Filler words that can appear between the verb and the actual package name,
+// in either order ("remove the vim package" or "remove the package vim").
+const PACKAGE_NAME_STOPWORDS = new Set([
+  "the", "a", "an", "for", "of", "to",
+  "package", "packages", "application", "app", "program", "software", "tool"
+]);
+
+// Phrasing that signals a filesystem operation, not a package operation, even
+// though it contains a package verb like "delete" -- e.g. "delete everything
+// in the root directory" should never be read as a package name extraction.
+const NON_PACKAGE_CONTEXT = /\b(director(?:y|ies)|folder|everything|\bfiles?\b)\b/i;
+
 function extractPackageName(task) {
-  const patterns = [
-    /\b(?:install|add|get)\s+(?:the\s+package\s+)?["']?([a-z0-9@+._-]+)["']?/i,
-    /\b(?:remove|uninstall|delete)\s+(?:the\s+package\s+)?["']?([a-z0-9@+._-]+)["']?/i,
-    /\b(?:search|find|look\s+for)\s+(?:the\s+package\s+)?["']?([a-z0-9@+._-]+)["']?/i
-  ];
+  if (NON_PACKAGE_CONTEXT.test(task)) {
+    return null;
+  }
 
-  for (const pattern of patterns) {
-    const match = task.match(pattern);
+  const verbMatch = task.match(/\b(?:install|add|get|remove|uninstall|delete|search|find|look)\b/i);
 
-    if (match?.[1]) {
-      return match[1].trim();
+  if (!verbMatch) {
+    return null;
+  }
+
+  const afterVerb = task.slice(verbMatch.index + verbMatch[0].length);
+  const tokens = afterVerb.split(/\s+/).map(cleanToken).filter(Boolean);
+
+  for (const token of tokens) {
+    if (PACKAGE_NAME_STOPWORDS.has(token.toLowerCase())) {
+      continue;
     }
+
+    const candidate = token.replace(/[^a-zA-Z0-9@+._-]/g, "");
+    return candidate || null;
   }
 
   return null;
@@ -558,6 +578,43 @@ function sanitizeGeneratedResult(parsed) {
   };
 }
 
+// Binaries that never need root to run in their common read-only/informational
+// form. Small local LLMs (e.g. mistral 7B) reliably over-apply sudo to these,
+// which needlessly forces a confirmation prompt on what should be an instant,
+// no-confirmation read (see README's "low risk -> run directly" behavior).
+const SUDO_UNNECESSARY_COMMANDS = new Set([
+  "df", "free", "ps", "uptime", "lscpu", "date", "du", "netstat",
+  "ip", "who", "w", "uname", "whoami", "id", "hostname", "lsblk",
+  "lsusb", "lspci", "ss", "nproc", "arch", "vmstat", "iostat"
+]);
+
+function maybeStripUnnecessarySudo(command) {
+  const sanitized = sanitizeCommand(command);
+  const match = sanitized.match(/^sudo\s+(\S+)(.*)$/i);
+
+  if (!match) {
+    return sanitized;
+  }
+
+  const [, binary, rest] = match;
+  const binaryName = binary.split("/").pop();
+
+  if (!SUDO_UNNECESSARY_COMMANDS.has(binaryName)) {
+    return sanitized;
+  }
+
+  const targetsProtectedPath = rest
+    .split(/\s+/)
+    .filter(Boolean)
+    .some(token => token.startsWith("/") && isProtectedPath(token));
+
+  if (targetsProtectedPath) {
+    return sanitized;
+  }
+
+  return sanitized.replace(/^sudo\s+/i, "");
+}
+
 function maybeRewritePrivilegedRedirection(command) {
   const sanitized = sanitizeCommand(command);
   const match = sanitized.match(
@@ -684,7 +741,9 @@ function applyInstructionHeuristics(instruction, parsed, systemProfile = {}) {
   }
 
   const sanitized = sanitizeGeneratedResult(parsed);
-  const rewrittenCommand = maybeRewritePrivilegedRedirection(sanitized.command);
+  const rewrittenCommand = maybeStripUnnecessarySudo(
+    maybeRewritePrivilegedRedirection(sanitized.command)
+  );
 
   return {
     ...sanitized,

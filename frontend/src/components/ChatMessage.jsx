@@ -10,6 +10,7 @@ export default function ChatMessage({ entry, onRunCommand, onExplainCommand, onC
     return (
       <div className="msg-user fade-in">
         <div className="msg-user-bubble">{entry.content}</div>
+        {time && <span className="msg-time">{time}</span>}
       </div>
     );
   }
@@ -22,6 +23,7 @@ export default function ChatMessage({ entry, onRunCommand, onExplainCommand, onC
         </div>
         <div className="msg-ai-content">
           <p className="msg-error-text">{entry.content}</p>
+          {time && <span className="msg-time">{time}</span>}
         </div>
       </div>
     );
@@ -44,6 +46,7 @@ export default function ChatMessage({ entry, onRunCommand, onExplainCommand, onC
             onCopy={onCopyCommand}
           />
         )}
+        {time && <span className="msg-time">{time}</span>}
       </div>
     </div>
   );

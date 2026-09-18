@@ -28,7 +28,7 @@ function loadSettings() {
   try { return JSON.parse(localStorage.getItem("cfg") || "null"); } catch { return null; }
 }
 function saveSettings(s) {
-  try { localStorage.setItem("cfg", JSON.stringify(s)); } catch {}
+  try { localStorage.setItem("cfg", JSON.stringify(s)); } catch { /* ignore */ }
 }
 
 const QUICK = [
@@ -74,7 +74,7 @@ export default function Index() {
       const d = await apiFetch("/api/setup");
       setSetup(d);
       setSettings(p => ({ ...p, provider: d.defaultProvider || p.provider }));
-    } catch {}
+    } catch { /* ignore */ }
   }, []);
 
   const fetchModels = useCallback(async () => {

@@ -2,7 +2,7 @@ const { logError } = require("../config/logger");
 
 function serializeHistory(history) {
   return history
-    .slice(-8)
+    .slice(-4)
     .map((entry, index) => {
       const resultPart = entry.result
         ? `Result: ${JSON.stringify({
@@ -78,6 +78,7 @@ Rules:
 - On Debian or Kali, use apt/apt-get. On Fedora/RHEL, use dnf. On openSUSE, use zypper. On Alpine, use apk.
 - When writing to a privileged file, use a pattern like "printf ... | sudo tee /path >/dev/null" instead of "sudo echo ... > /path".
 - If the task is inside a normal user-owned path, avoid sudo.
+- Read-only informational and diagnostic commands never need sudo: df, free, ps, uptime, lscpu, date, du, netstat, ip, who, w, uname, whoami, id, hostname, lsblk, lsusb, lspci, ss. Do not prefix these with sudo just because they report on system state.
 - For filesystem-wide search commands, prefer hiding permission noise with 2>/dev/null unless the user explicitly needs privileged access.
 - Include a short explanation for beginners.
 - Include 0 to 3 alternatives when useful.
@@ -101,11 +102,11 @@ ${instruction}
 `;
   }
 
-  safetyPrompt({ command, explanation, history }) {
+  safetyPrompt({ command, explanation }) {
     return `
 You are a Linux command safety reviewer.
 
-Review the command in context and return ONLY JSON:
+Review the command and return ONLY JSON:
 {
   "safe": true,
   "confidence": 0.0,
@@ -114,9 +115,6 @@ Review the command in context and return ONLY JSON:
 
 Mark safe=false if the command could destroy data, change system-wide configuration, escalate privileges, or perform risky networking without clear justification.
 Legitimate administrative commands may still be appropriate for the user request. If so, explain the risk clearly.
-
-Conversation history:
-${serializeHistory(history) || "None"}
 
 Command:
 ${command}

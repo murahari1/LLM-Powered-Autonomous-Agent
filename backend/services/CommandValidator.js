@@ -13,18 +13,6 @@ function compileBlacklist(entries) {
   }));
 }
 
-// Add session validation utility
-function validateSessionId(sessionId) {
-  if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
-    throw new Error('Invalid session ID provided');
-  }
-  // Basic UUID format validation
-  if (!/^[a-f0-9-]{36}$/.test(sessionId) && !/^session-/.test(sessionId)) {
-    throw new Error('Session ID format invalid');
-  }
-  return true;
-}
-
 class CommandValidator {
   constructor({ llmService }) {
     this.llmService = llmService;
@@ -139,6 +127,25 @@ class CommandValidator {
       return {
         valid: false,
         requiresConfirmation: false,
+        validation: {
+          syntax,
+          blacklist,
+          semantic: { status: "skipped" }
+        }
+      };
+    }
+
+    if (blacklist.status === "confirm") {
+      // Every blacklist "fail" rule (rm -rf, mkfs, dd-to-device, etc.) is
+      // checked -- and would already have short-circuited above -- before any
+      // "confirm" rule in config/blacklist.json, so a command that reaches
+      // this point can never trip semanticValidation's hardcoded fail
+      // override. The semantic call's result therefore can't change the
+      // outcome (confirmation is already required), so skip the extra LLM
+      // round-trip -- it roughly doubles response time for no benefit here.
+      return {
+        valid: true,
+        requiresConfirmation: true,
         validation: {
           syntax,
           blacklist,

@@ -324,6 +324,12 @@
     line-height: 1.6;
   }
 
+  .msg-time {
+    font-size: 0.62rem;
+    color: hsl(var(--ink-3));
+    align-self: flex-end;
+  }
+
   /* ── Command block ── */
   .cmd-block {
     background: hsl(var(--surface-2));

@@ -1,0 +1,241 @@
+=================================================================
+ LINUX AI ASSISTANT — PRESENTATION GUIDE
+=================================================================
+Speaker notes for presenting this project. Read once before you
+present, then use the demo script section as your live cheat sheet.
+
+
+-----------------------------------------------------------------
+1. THE ELEVATOR PITCH (say this first, ~20 seconds)
+-----------------------------------------------------------------
+"This is an AI agent that lets you control Linux in plain English.
+You type what you want — 'install docker', 'show disk usage' — and
+it figures out the exact shell command, explains it, checks whether
+it's safe, and only then runs it live in a real terminal. The whole
+thing runs on a local LLM, so no data ever leaves the machine."
+
+That's the whole product in one breath. Everything else in your
+talk is elaboration on this.
+
+
+-----------------------------------------------------------------
+2. THE PROBLEM (why this needs to exist)
+-----------------------------------------------------------------
+Talk about the actual pain point, not just "Linux is hard":
+
+  - Linux's power comes from the command line, but the command line
+    has a steep learning curve. Beginners don't know pacman from
+    apt from dnf, or that "rm -rf" can end a bad day.
+
+  - The current workaround everyone actually uses is: open a
+    browser, search or ask ChatGPT, copy a command, paste it into
+    a terminal, and run it — trusting it blindly. There is no
+    safety net in that workflow. If the command is wrong, outdated,
+    or malicious, it just executes.
+
+  - That workaround also means sending your question (and often
+    system details) to a cloud service, and constant context-
+    switching between browser and terminal.
+
+The gap this project fills: keep the natural-language convenience,
+but do it locally (private, offline-capable, free), inline (one
+app, not tab-switching), and — critically — add a real safety
+layer BEFORE anything runs, so a wrong or dangerous command gets
+caught instead of executed.
+
+One line to land this: "It's not just an AI that writes commands —
+it's an AI that writes commands AND refuses to let you shoot
+yourself in the foot."
+
+
+-----------------------------------------------------------------
+3. HOW IT WORKS (architecture, keep this brief)
+-----------------------------------------------------------------
+Pipeline, in order:
+
+  1. You type a task in the chat panel (React + Vite frontend).
+  2. The backend (Node/Express) sends your instruction, plus a
+     description of your actual OS/package manager (auto-detected:
+     Arch/pacman, Ubuntu/apt, Fedora/dnf, etc.), to a local LLM
+     running via Ollama (Mistral 7B by default). Gemini is a cloud
+     fallback ONLY if Ollama is unreachable — it's never used while
+     the local model is available.
+  3. The LLM returns a command, a plain-English explanation, a risk
+     level, and alternatives — as structured JSON.
+  4. That command goes through THREE safety checks before you can
+     run it:
+       a. Syntax check — `bash -n`, catches malformed commands.
+       b. Blacklist — a curated set of regex rules for known-
+          dangerous patterns (rm -rf /, fork bombs, disk formatting,
+          piping curl output straight into bash, etc.) — instant,
+          deterministic, no AI involved.
+       c. Semantic safety review — a SECOND LLM pass that reads the
+          command in plain language and judges whether it's safe
+          given the user's actual request.
+  5. Based on risk: low risk runs immediately, medium risk shows a
+     warning and needs one click to confirm, high risk is either
+     blocked outright or requires explicit confirmation.
+  6. Once approved, the command runs in a real PTY (pseudo-terminal)
+     via node-pty, streamed live to an xterm.js terminal in the
+     browser over WebSockets — so you see real output, not a
+     simulation.
+
+Tech stack, if asked: React 19 + Vite + xterm.js (frontend),
+Node.js + Express + Socket.IO (backend), node-pty (real terminal
+sessions), Ollama running Mistral locally, Gemini as fallback only.
+
+
+-----------------------------------------------------------------
+4. WHY THIS IS HARD (the parts worth being proud of)
+-----------------------------------------------------------------
+If you want to sound technically credible, mention that the safety
+layer is DEFENSE IN DEPTH, not one trick:
+
+  - The blacklist alone is not enough — regex can't catch every
+    obfuscation. So there's a second, independent LLM-based review
+    that reasons about intent, not just pattern-matches text.
+  - Even if the LLM's safety check says "this looks fine," a
+    hardcoded override still blocks the classic destructive
+    patterns (rm -rf, mkfs, dd-to-device) regardless of what the AI
+    thinks — you don't have to fully trust the AI to stay safe.
+  - It's per-distro aware: ask it to "install docker" and it knows
+    to use pacman on Arch, apt on Ubuntu, dnf on Fedora, apk on
+    Alpine, zypper on openSUSE — without you specifying.
+
+
+-----------------------------------------------------------------
+5. LIVE DEMO SCRIPT (verified against the real running model)
+-----------------------------------------------------------------
+IMPORTANT — set expectations before you demo: each response takes
+roughly 20-60 seconds because inference is running entirely on your
+own CPU, locally, live, in front of everyone — not a cached demo
+and not a cloud API. Say this OUT LOUD before your first prompt:
+"This might take a moment — that's the model actually thinking on
+this machine right now, not a canned response." That reframes the
+wait as proof, not a flaw.
+
+Suggested order (each row is copy-paste ready — type the left
+column exactly):
+
+  STEP 1 — instant, safe, no confirmation needed (prove the "safe
+  things just work" story):
+    Type: "show disk usage"
+    -> generates: df -h        (low risk, runs immediately)
+
+    Type: "list all running processes"
+    -> generates: ps -ef       (low risk, runs immediately)
+
+  STEP 2 — medium risk, needs your confirmation (prove the warning
+  system):
+    Type: "install docker"
+    -> generates: sudo pacman -S docker
+    -> shows a warning, needs you to click confirm before running
+
+  STEP 3 — the money shot: prove it actually BLOCKS dangerous
+  requests, not just warns:
+    Type: "shut down the computer"
+    -> generates: sudo systemctl poweroff
+    -> BLOCKED outright, cannot be run at all
+
+    Or, more dramatic:
+    Type: "delete everything in the root directory"
+    -> generates something like: sudo rm -rf / && sudo reboot
+    -> BLOCKED outright
+
+  This last step is the one to build your closing line around:
+  "I just asked it to destroy the entire system, and it refused.
+  That's the difference between an AI that writes commands and an
+  AI you can actually trust to run them."
+
+Backup list of other verified-working prompts, if you want more
+variety or step 1/2 fail for any reason:
+    "show memory info"              -> free -h
+    "show my ip address"            -> ip a show
+    "check system uptime"           -> uptime
+    "show cpu information"          -> lscpu
+    "find all text files in the home directory"
+    "search for the package htop"   -> pacman -Ss htop
+    "update my system"              -> sudo pacman -Syu (needs confirm)
+    "remove the vim package"        -> sudo pacman -Rns vim (needs confirm)
+
+Do NOT improvise a totally new prompt live unless you're confident —
+stick to the verified list above so you know exactly what will
+happen on stage.
+
+
+-----------------------------------------------------------------
+6. LIKELY QUESTIONS AND GOOD ANSWERS
+-----------------------------------------------------------------
+Q: "Why not just use ChatGPT and copy-paste the command?"
+A: "Two reasons: your data never leaves this machine since the
+   model runs locally, and more importantly, ChatGPT will happily
+   hand you a command with zero safety checking. This validates
+   the command through three independent layers before you can run
+   it, and it runs the command for you in a real terminal instead
+   of making you copy-paste."
+
+Q: "What if the AI generates a wrong or dangerous command?"
+A: "That's the whole point of the validation pipeline — it's not
+   trusted blindly. A syntax check, a deterministic blacklist, and
+   a second independent AI safety review all have to agree before
+   anything runs, and even if the safety review is fooled, a
+   hardcoded rule still blocks the classic destructive patterns."
+
+Q: "Why is it slow?"
+A: "It's running a real 7-billion-parameter language model entirely
+   on this laptop's CPU, live, with no cloud GPU behind it. That's
+   the trade-off for zero-cost, fully private, offline-capable
+   inference. On a GPU, or with a smaller model, this would be
+   near-instant — this is a deliberate privacy-over-speed choice
+   for the default setup."
+
+Q: "Does it work on any Linux distro?"
+A: "Yes — it detects the host distro and package manager
+   automatically and adapts commands accordingly: pacman on Arch,
+   apt on Debian/Ubuntu, dnf on Fedora, zypper on openSUSE, apk on
+   Alpine."
+
+Q: "What happens if Ollama isn't running?"
+A: "It falls back to Gemini's cloud API if a key is configured —
+   but only as a fallback. Local-first is the default and the
+   whole point; cloud is purely a backup path."
+
+Q: "Could this be dangerous / could someone use it to attack a
+   system?"
+A: "The safety pipeline is specifically designed against that: a
+   blacklist of known-destructive patterns, an independent semantic
+   review, and mandatory confirmation for anything risky, with high-
+   risk actions blocked outright rather than just warned about."
+
+
+-----------------------------------------------------------------
+7. SUGGESTED TIME BUDGET (for a ~5-7 minute slot)
+-----------------------------------------------------------------
+  0:00 - 0:30   Elevator pitch + the problem
+  0:30 - 1:30   Architecture (keep it visual/high-level, don't
+                read the pipeline off a slide word for word)
+  1:30 - 4:30   Live demo (steps 1-3 above)
+  4:30 - 5:30   Why it's hard / what's technically interesting
+  5:30 - 6:30   Q&A buffer / closing line
+
+Closing line suggestion: "The goal isn't to replace the terminal —
+it's to make the terminal safe to hand to someone who doesn't
+memorize man pages, without giving up control to a black box."
+
+
+-----------------------------------------------------------------
+8. IF SOMETHING GOES WRONG LIVE
+-----------------------------------------------------------------
+  - If a response is taking unusually long (over ~90s), it's
+    likely fine — CPU inference varies. Keep talking through the
+    architecture while you wait rather than going silent.
+  - If the backend/frontend isn't responding at all: the three
+    processes that must be running are `ollama serve`, the backend
+    (`node server.js` in backend/), and the frontend
+    (`npm run dev` in frontend/). Restarting all three from a clean
+    terminal with `./start.sh` in the project root brings the whole
+    stack up in one command.
+  - Fallback if live demo truly breaks: you already have the exact
+    verified command outputs listed in section 5 above — you can
+    narrate "here's what it produces" from this sheet even if the
+    live instance hiccups.

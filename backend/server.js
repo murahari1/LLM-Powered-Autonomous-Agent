@@ -265,6 +265,13 @@ function createRuntime(overrides = {}) {
       error: error.message
     });
 
+    if (error.type === "entity.parse.failed") {
+      res.status(400).json({
+        error: "Request body must be valid JSON."
+      });
+      return;
+    }
+
     res.status(500).json({
       error: error.message || "Unexpected server error."
     });

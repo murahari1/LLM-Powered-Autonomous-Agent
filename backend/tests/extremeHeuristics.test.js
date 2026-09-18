@@ -98,11 +98,23 @@ test("remove nginx on Fedora → dnf remove", () => {
    4. MULTI-DISTRO PACKAGE MANAGEMENT — search
    ═══════════════════════════════════════════════════════════════════ */
 
-test("search for package vim on Arch → pacman -Ss", () => {
+test("search for package vim on Arch → pacman -Ss vim", () => {
   const result = applyInstructionHeuristics("search for package vim", baseParsed, archProfile);
-  // extractPackageName picks "for" from "search for" pattern — the search heuristic
-  // needs "look for package X" to extract the right name
-  assert.match(result.command, /pacman -Ss/);
+  assert.equal(result.command, "pacman -Ss vim");
+});
+
+test("remove the vim package (name before the word 'package')", () => {
+  const result = applyInstructionHeuristics("remove the vim package", baseParsed, archProfile);
+  assert.equal(result.command, "sudo pacman -Rns vim");
+});
+
+test("delete everything in the root directory is not mistaken for a package removal", () => {
+  const result = applyInstructionHeuristics(
+    "delete everything in the root directory",
+    { command: "rm -rf /*", explanation: "danger", riskLevel: "high", alternatives: [] },
+    archProfile
+  );
+  assert.ok(!result.command.includes("pacman"), "Should not be reinterpreted as a package command");
 });
 
 test("search package vim on Ubuntu → apt search", () => {

@@ -20,15 +20,15 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
   /* Expose imperative write/clear to parent */
   useImperativeHandle(ref, () => ({
-    write: (data) => { try { termRef.current?.write(data); } catch {} },
-    clear: () => { try { termRef.current?.clear(); termRef.current?.reset(); } catch {} },
+    write: (data) => { try { termRef.current?.write(data); } catch { /* ignore */ } },
+    clear: () => { try { termRef.current?.clear(); termRef.current?.reset(); } catch { /* ignore */ } },
   }), []);
 
   const fit = useCallback(() => {
     try {
       fitRef.current?.fit();
       if (termRef.current) onResize?.(termRef.current.cols, termRef.current.rows);
-    } catch {}
+    } catch { /* ignore */ }
   }, [onResize]);
 
   const init = useCallback(() => {
@@ -72,7 +72,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
         fitAddon.fit();
         term.focus();
         onResize?.(term.cols, term.rows);
-      } catch {}
+      } catch { /* ignore */ }
     });
 
     term.onData((data) => {
@@ -110,7 +110,7 @@ const TerminalPanel = forwardRef(function TerminalPanel(
 
   useEffect(() => {
     if (!termRef.current) return;
-    try { fitRef.current?.fit(); termRef.current.focus(); onResize?.(termRef.current.cols, termRef.current.rows); } catch {}
+    try { fitRef.current?.fit(); termRef.current.focus(); onResize?.(termRef.current.cols, termRef.current.rows); } catch { /* ignore */ }
   }, [focusSignal, onResize]);
 
   const isActive = status === "running" || status === "awaiting input" || status === "awaiting_input";

@@ -14,6 +14,15 @@ function parseOrigins(value) {
     .filter(Boolean);
 }
 
+// install.sh writes this literal placeholder into backend/.env when the user
+// skips Gemini setup; treat it as "not configured" instead of a real key.
+const GEMINI_KEY_PLACEHOLDER = "your_gemini_api_key_here";
+
+function parseGeminiApiKey(value) {
+  const trimmed = String(value || "").trim();
+  return trimmed === GEMINI_KEY_PLACEHOLDER ? "" : trimmed;
+}
+
 const env = {
   port: parseInteger(process.env.PORT, 3000),
   host: process.env.HOST || "127.0.0.1",
@@ -24,10 +33,15 @@ const env = {
   defaultProvider: process.env.LLM_PROVIDER || "ollama",
   ollamaUrl: process.env.OLLAMA_URL || "http://127.0.0.1:11434",
   ollamaModel: process.env.OLLAMA_MODEL || "mistral",
-  ollamaTimeoutMs: parseInteger(process.env.OLLAMA_TIMEOUT_MS, 10_000),
+  // CPU-only inference of a 7B model regularly takes well over 10s per call,
+  // and each /api/command request can make two sequential Ollama calls
+  // (command generation, then the semantic safety check) -- a short timeout
+  // here made most real requests fail with a misleading "Ollama isn't
+  // running" error even while Ollama was working correctly, just slowly.
+  ollamaTimeoutMs: parseInteger(process.env.OLLAMA_TIMEOUT_MS, 60_000),
   geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
   geminiTimeoutMs: parseInteger(process.env.GEMINI_TIMEOUT_MS, 12_000),
-  geminiApiKey: process.env.GEMINI_API_KEY || "",
+  geminiApiKey: parseGeminiApiKey(process.env.GEMINI_API_KEY),
   executionTimeoutMs: parseInteger(process.env.EXECUTION_TIMEOUT_MS, 30_000),
   sessionTtlMs: parseInteger(process.env.SESSION_TTL_MS, 30 * 60_000),
   agentUser: process.env.AGENT_USER || process.env.USER || "agentuser",
@@ -35,7 +49,11 @@ const env = {
     process.env.AGENT_HOME ||
     process.env.HOME ||
     path.resolve(process.cwd(), "..", ".agent-workspace"),
-  shellPath: process.env.SHELL || "/bin/bash",
+  // Deliberately not process.env.SHELL: that reflects whatever launched this
+  // process (which can be stale or mismatched, e.g. zsh with no rc files set
+  // up), while the rest of the app (syntax validation, LLM prompts) assumes
+  // bash. Opt in explicitly via SHELL_PATH if another shell is really wanted.
+  shellPath: process.env.SHELL_PATH || "/bin/bash",
   auditLogDir: path.resolve(process.cwd(), "logs")
 };
 

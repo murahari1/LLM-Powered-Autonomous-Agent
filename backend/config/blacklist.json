@@ -1,7 +1,7 @@
 [
   {
     "id": "fs-root-delete",
-    "pattern": "\\brm\\s+-[A-Za-z]*[rf][A-Za-z]*\\s+/(\\s|$)",
+    "pattern": "\\brm\\s+(?:(?:-[A-Za-z]*[rf][A-Za-z]*|--recursive|--force|--no-preserve-root)\\s+)+/(\\s|$)",
     "flags": "i",
     "category": "filesystem-destruction",
     "riskLevel": "high",
@@ -9,7 +9,7 @@
   },
   {
     "id": "fs-home-delete",
-    "pattern": "\\brm\\s+-[A-Za-z]*[rf][A-Za-z]*\\s+(~|/home)(/|\\s|$)",
+    "pattern": "\\brm\\s+(?:(?:-[A-Za-z]*[rf][A-Za-z]*|--recursive|--force|--no-preserve-root)\\s+)+(~|\\$HOME|/home)(/|\\s|$)",
     "flags": "i",
     "category": "filesystem-destruction",
     "riskLevel": "high",
@@ -145,7 +145,7 @@
   },
   {
     "id": "curl-pipe-shell",
-    "pattern": "\\bcurl\\b[^\\n]*\\|\\s*(bash|sh|zsh)\\b",
+    "pattern": "\\bcurl\\b[^\\n]*\\|\\s*(?:[\\w./-]*/)?(bash|sh|zsh)\\b",
     "flags": "i",
     "category": "data-exfiltration",
     "riskLevel": "high",
@@ -153,7 +153,7 @@
   },
   {
     "id": "wget-pipe-shell",
-    "pattern": "\\bwget\\b[^\\n]*\\|\\s*(bash|sh|zsh)\\b",
+    "pattern": "\\bwget\\b[^\\n]*\\|\\s*(?:[\\w./-]*/)?(bash|sh|zsh)\\b",
     "flags": "i",
     "category": "data-exfiltration",
     "riskLevel": "high",
@@ -161,7 +161,7 @@
   },
   {
     "id": "base64-pipe-shell",
-    "pattern": "\\bbase64\\s+-d\\b[^\\n]*\\|\\s*(bash|sh|zsh)\\b",
+    "pattern": "\\bbase64\\s+-d\\b[^\\n]*\\|\\s*(?:[\\w./-]*/)?(bash|sh|zsh)\\b",
     "flags": "i",
     "category": "data-exfiltration",
     "riskLevel": "high",
