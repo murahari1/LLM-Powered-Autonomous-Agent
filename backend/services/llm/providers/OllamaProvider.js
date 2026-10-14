@@ -14,7 +14,11 @@ class OllamaProvider {
       {
         model: model || this.defaultModel,
         prompt,
-        stream: false
+        stream: false,
+        // Keep the model resident well past Ollama's 5-minute default so a
+        // quiet stretch (e.g. mid-presentation) doesn't force a slow reload
+        // on the next request.
+        keep_alive: "30m"
       },
       {
         timeout: this.timeoutMs
